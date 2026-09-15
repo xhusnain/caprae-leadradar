@@ -35,12 +35,12 @@ export function buildBriefHtml(rows: { lead: Lead; score: ScoreResult }[], box: 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(lensLabel)} — ${esc(date)}</title>
 <style>
-:root{--ink:#12211b;--muted:#5d6c65;--line:#e2e6df;--brand:#1f8a5b;--a:#059669;--b:#b7791f;--c:#0369a1;--d:#6b7280}
-*{box-sizing:border-box}body{margin:0;font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:#f5f6f3}
+:root{--ink:#0f172a;--muted:#475569;--line:#e9edf2;--brand:#2563eb;--a:#1d4ed8;--b:#0f172a;--c:#64748b;--d:#94a3b8}
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:#f8fafc}
 main{max-width:920px;margin:0 auto;padding:40px 20px}header h1{margin:0;font-size:28px;letter-spacing:-.02em}.muted{color:var(--muted);margin:2px 0}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:24px 0}.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}.kpi b{display:block;font-size:22px}
 .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0;break-inside:avoid}
-.head{display:flex;gap:12px;align-items:flex-start}.head h3{margin:0;font-size:16px}.rank{width:26px;height:26px;border-radius:50%;background:#e3f3ea;color:#0f5c3b;display:grid;place-items:center;font-weight:600;font-size:12px;flex:none}
+.head{display:flex;gap:12px;align-items:flex-start}.head h3{margin:0;font-size:16px}.rank{width:26px;height:26px;border-radius:50%;background:#eff6ff;color:#1d4ed8;display:grid;place-items:center;font-weight:600;font-size:12px;flex:none}
 .score{margin-left:auto;font-size:24px;font-weight:700;text-align:right;line-height:1}.score small{display:block;font-size:11px;font-weight:600;margin-top:4px}
 .tA{color:var(--a)}.tB{color:var(--b)}.tC{color:var(--c)}.tD{color:var(--d)}
 .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-top:10px}h4{margin:8px 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}ul{margin:0;padding-left:18px}p{margin:0}

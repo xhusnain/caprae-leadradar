@@ -36,7 +36,7 @@ export default function ExportMenu({ rows, box, scope, dupesRemoved, onDone }: {
 
   return (
     <div className="relative" ref={ref}>
-      <Button variant="dark" size="sm" onClick={() => setOpen((v) => !v)} disabled={!rows.length} icon={<Download size={14} />} aria-expanded={open}>
+      <Button variant="secondary" size="sm" onClick={() => setOpen((v) => !v)} disabled={!rows.length} icon={<Download size={14} />} aria-expanded={open}>
         Export <ChevronDown size={13} />
       </Button>
       {open && (

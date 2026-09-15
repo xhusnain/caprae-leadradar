@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Radar, Search, LayoutList, SquareKanban, X, Sparkles, ShieldCheck, Target, UserRound, Gauge, LoaderCircle, Trash2, RefreshCw, Share2, Check } from "lucide-react";
-import type { BuyBox, Enrichment, Lead, ScoreResult, Stage, Tier } from "@/lib/types";
+import { Radar, Search, X, Trash2, RefreshCw, Share2, Check, SlidersHorizontal, LoaderCircle, Handshake, BriefcaseBusiness, ShieldCheck, Sparkles, ListChecks, Send } from "lucide-react";
+import type { BuyBox, Enrichment, Lead, Lens, ScoreResult, Stage, Tier } from "@/lib/types";
 import { STAGES } from "@/lib/types";
 import { dedupeLeads } from "@/lib/dedupe";
-import { bestEmail, decisionMaker, defaultBuyBox, rankLeads } from "@/lib/score";
+import { DEFAULT_WEIGHTS, bestEmail, decisionMaker, defaultBuyBox, rankLeads } from "@/lib/score";
 import { postStream } from "@/lib/stream";
 import { detectColumns, parseCsv, rowsToLeads } from "@/lib/csv";
 import { industryByKey } from "@/lib/industries";
-import { Button, Card, Chip, Segmented, cn, inputCls, selectCls } from "./ui";
-import SourcePanel from "./SourcePanel";
+import { Button, Card, Chip, Segmented, Sheet, cn, inputCls, selectCls } from "./ui";
+import SearchBar from "./SearchBar";
+import ImportDialog from "./ImportDialog";
 import BuyBoxPanel from "./BuyBoxPanel";
 import LeadsTable from "./LeadsTable";
 import LeadDrawer from "./LeadDrawer";
@@ -73,6 +74,8 @@ export default function App() {
   const [autoEnrich, setAutoEnrich] = useState(true);
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [saved, setSaved] = useState<"idle" | "saving" | "saved">("idle");
+  const [boxOpen, setBoxOpen] = useState(false);
+  const [importTab, setImportTab] = useState<"csv" | "paste" | null>(null);
   const leadsRef = useRef(leads);
   useEffect(() => {
     leadsRef.current = leads;
@@ -163,7 +166,7 @@ export default function App() {
       if (!unique.length) return;
       setEnriching((s) => new Set([...s, ...unique]));
       let done = 0;
-      setActivity({ message: `Analysing websites · 0/${unique.length}`, progress: 0 });
+      setActivity({ message: `Analysing websites · 0 of ${unique.length}`, progress: 0 });
       try {
         for (let i = 0; i < unique.length; i += ENRICH_BATCH) {
           const chunk = new Set(unique.slice(i, i + ENRICH_BATCH));
@@ -182,7 +185,7 @@ export default function App() {
                 n.delete(e.id);
                 return n;
               });
-              setActivity({ message: `Analysing websites · ${done}/${unique.length}`, progress: done / unique.length });
+              setActivity({ message: `Analysing websites · ${done} of ${unique.length}`, progress: done / unique.length });
             } else if (e.type === "error") showToast(e.message);
           });
         }
@@ -209,7 +212,7 @@ export default function App() {
           else if (e.type === "error") throw new Error(e.message);
         });
         if (!found.length) {
-          showToast(`No mapped ${industries.join("/")} businesses found near ${location}. Try a nearby city or another industry.`);
+          showToast(`No mapped businesses found near ${location}. Try a nearby city or another industry.`);
           return;
         }
         const fresh = addLeads(found, `Discovered near ${location}`);
@@ -264,14 +267,13 @@ export default function App() {
   }, [ranked, query, tier, hideChains, reachableOnly, sort]);
 
   const stats = useMemo(() => {
-    const enriched = ranked.filter((r) => r.lead.enrichment);
     const tiers = { A: 0, B: 0, C: 0, D: 0 } as Record<Tier, number>;
     ranked.forEach((r) => tiers[r.score.tier]++);
     const avg = (f: (r: Ranked) => number) => (ranked.length ? ranked.reduce((s, r) => s + f(r), 0) / ranked.length : 0);
     return {
       total: ranked.length,
       tiers,
-      enriched: enriched.length,
+      enriched: ranked.filter((r) => r.lead.enrichment).length,
       owners: ranked.filter((r) => decisionMaker(r.lead)).length,
       verified: ranked.filter((r) => bestEmail(r.lead)?.mx).length,
       completeness: avg((r) => r.score.completeness),
@@ -300,6 +302,7 @@ export default function App() {
   }, [filtered, openIndex]);
 
   const setStage = useCallback((id: string, stage: Stage) => updateLead(id, { stage }), [updateLead]);
+  const setLens = (lens: Lens) => setBox((b) => ({ ...b, lens, weights: { ...DEFAULT_WEIGHTS[lens] } }));
 
   const toggle = (id: string) =>
     setSelection((s) => {
@@ -328,43 +331,39 @@ export default function App() {
   const step = !leads.length ? 1 : stats.enriched < leads.length || enriching.size ? 2 : leads.some((l) => l.stage !== "new") ? 4 : 3;
   const selectedRows = selection.size ? ranked.filter((r) => selection.has(r.lead.id)) : filtered;
   const pendingNoEnrich = leads.filter((l) => !l.enrichment && !enriching.has(l.id));
+  const boxCount = box.industries.length + box.regions.length + (box.minYears ? 1 : 0);
+  const hasLeads = leads.length > 0;
+
+  const stat = [
+    { label: "Leads", value: stats.total, sub: `${stats.enriched} enriched · ${dupesRemoved} duplicate${dupesRemoved === 1 ? "" : "s"} merged` },
+    { label: "Priority", value: stats.tiers.A, sub: `${stats.tiers.B} strong · call these first`, onClick: () => setTier(tier === "A" ? "all" : "A"), active: tier === "A" },
+    { label: "Owners named", value: stats.owners, sub: `${stats.verified} with verified email domain`, onClick: () => setReachableOnly((v) => !v), active: reachableOnly },
+    { label: "Data completeness", value: `${Math.round(stats.completeness * 100)}%`, sub: `${Math.round(stats.coverage * 100)}% of scoring backed by evidence` },
+  ];
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5 sm:px-6">
+    <div className="min-h-screen bg-bg">
+      <header className="sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-[1320px] items-center gap-6 px-4 sm:px-8">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-brand">
-              <Radar size={18} strokeWidth={2.2} className="text-[#5fd3a0]" />
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand text-white">
+              <Radar size={15} strokeWidth={2.4} />
             </span>
-            <div className="leading-tight">
-              <div className="text-[15px] font-semibold tracking-tight">
-                LeadRadar <span className="font-normal text-muted">for SaaSquatch</span>
-              </div>
-              <div className="hidden text-[11px] text-faint sm:block">Find, verify and prioritise the owners worth calling</div>
-            </div>
+            <span className="text-[15px] font-semibold tracking-tight">LeadRadar</span>
+            <span className="hidden text-[13px] text-faint sm:inline">for SaaSquatch</span>
           </div>
 
-          <ol className="hidden items-center gap-1 text-[12px] lg:flex" aria-label="Workflow">
+          <ol className="hidden items-center gap-5 text-[13px] lg:flex" aria-label="Workflow">
             {["Find", "Enrich & verify", "Prioritise", "Reach out"].map((label, i) => {
               const n = i + 1;
-              const state = n < step ? "done" : n === step ? "current" : "todo";
+              const done = n < step;
+              const current = n === step;
               return (
-                <li key={label} className="flex items-center gap-1">
-                  {i > 0 && <span className="mx-1 h-px w-5 bg-line-strong" />}
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium",
-                      state === "current" && "bg-brand-soft text-brand-ink",
-                      state === "done" && "text-brand",
-                      state === "todo" && "text-faint",
-                    )}
-                  >
-                    <span className={cn("grid h-4 w-4 place-items-center rounded-full text-[10px]", state === "done" ? "bg-brand text-white" : state === "current" ? "bg-brand text-white" : "border border-line-strong")}>
-                      {state === "done" ? <Check size={10} strokeWidth={3} /> : n}
-                    </span>
-                    {label}
+                <li key={label} className={cn("flex items-center gap-1.5", current ? "font-medium text-ink" : done ? "text-muted" : "text-faint")}>
+                  <span className={cn("grid h-[18px] w-[18px] place-items-center rounded-full text-[10px] font-semibold", done ? "bg-brand-soft text-brand" : current ? "bg-brand text-white" : "bg-surface-3 text-faint")}>
+                    {done ? <Check size={11} strokeWidth={3} /> : n}
                   </span>
+                  {label}
                 </li>
               );
             })}
@@ -372,14 +371,12 @@ export default function App() {
 
           <div className="ml-auto flex items-center gap-2">
             {status && (
-              <span className="hidden items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-[11px] text-muted md:inline-flex" title="Outreach engine · storage backend">
-                <span className={cn("h-1.5 w-1.5 rounded-full", status.ai === "Claude" ? "bg-brand" : "bg-tier-b")} />
+              <span className="hidden items-center gap-1.5 text-[12px] text-faint md:inline-flex" title="Outreach engine · storage backend">
+                {saved === "saving" ? <LoaderCircle size={12} className="animate-spin" /> : <span className={cn("h-1.5 w-1.5 rounded-full", status.ai === "Claude" ? "bg-brand" : "bg-line-strong")} />}
                 {status.ai === "Claude" ? "Claude outreach" : "Template outreach"} · {status.storage}
-                {saved === "saving" && <LoaderCircle size={11} className="animate-spin" />}
-                {saved === "saved" && <Check size={11} className="text-brand" />}
               </span>
             )}
-            {leads.length > 0 && (
+            {hasLeads && (
               <Button size="sm" variant="ghost" onClick={share} icon={<Share2 size={14} />} className="hidden sm:inline-flex">
                 Share
               </Button>
@@ -388,127 +385,180 @@ export default function App() {
           </div>
         </div>
         {activity && (
-          <div className="border-t border-line bg-surface">
-            <div className="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-1.5 text-[12px] text-muted sm:px-6">
-              <LoaderCircle size={13} className="animate-spin text-brand" />
-              <span className="truncate">{activity.message}</span>
-              {activity.progress !== undefined && (
-                <div className="ml-auto h-1 w-40 overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full bg-brand transition-[width] duration-300" style={{ width: `${Math.round(activity.progress * 100)}%` }} />
-                </div>
-              )}
-            </div>
+          <div className="relative h-0.5 bg-surface-3">
+            <div className={cn("absolute inset-y-0 left-0 bg-brand transition-[width] duration-300", activity.progress === undefined && "w-1/3 animate-pulse")} style={activity.progress !== undefined ? { width: `${Math.max(4, Math.round(activity.progress * 100))}%` } : undefined} />
           </div>
         )}
       </header>
 
-      <main className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[330px_minmax(0,1fr)]">
-        <aside className={cn(leads.length > 0 && "order-2 lg:order-none", "space-y-4 scroll-thin lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto lg:pb-4")}>
-          <SourcePanel onDiscover={runDiscover} onImport={importLeads} onSample={loadSample} busy={discovering} autoEnrich={autoEnrich} setAutoEnrich={setAutoEnrich} />
-          <BuyBoxPanel box={box} onChange={setBox} />
-        </aside>
+      <main className="mx-auto max-w-[1320px] px-4 pb-16 sm:px-8">
+        {/* Title row */}
+        <div className={cn("flex flex-wrap items-end justify-between gap-4", hasLeads ? "pt-8" : "pt-16 sm:pt-20")}>
+          <div className={cn(!hasLeads && "max-w-2xl")}>
+            {!hasLeads && <p className="mb-3 text-[13px] font-medium text-brand">Lead intelligence for SaaSquatch</p>}
+            <h1 className={cn("font-semibold tracking-tight text-ink", hasLeads ? "text-[22px]" : "text-[36px] leading-[1.1] sm:text-[44px]")}>
+              {hasLeads ? "Lead workspace" : "Find the owners worth calling."}
+            </h1>
+            <p className={cn("text-muted", hasLeads ? "mt-1 text-sm" : "mt-4 text-[16px] leading-relaxed")}>
+              {hasLeads
+                ? "Ranked by evidence. Open any lead to see why it scores, who to contact and what to say."
+                : "Search real businesses by industry and city. LeadRadar verifies each one, ranks them with explainable scores, and drafts the first message."}
+            </p>
+          </div>
+          {hasLeads && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Segmented<Lens>
+                value={box.lens}
+                onChange={setLens}
+                options={[
+                  { value: "acquisition", label: <><Handshake size={14} /> Businesses to buy</> },
+                  { value: "sales", label: <><BriefcaseBusiness size={14} /> Customers</> },
+                ]}
+              />
+              <Button onClick={() => setBoxOpen(true)} icon={<SlidersHorizontal size={14} />}>
+                Buy box
+                {boxCount > 0 && <span className="ml-0.5 rounded-full bg-brand-soft px-1.5 text-[11px] font-semibold text-brand-ink">{boxCount}</span>}
+              </Button>
+            </div>
+          )}
+        </div>
 
-        <section className={cn(leads.length > 0 && "order-1 lg:order-none", "min-w-0 space-y-4")}>
-          {!leads.length ? (
-            <EmptyHero onSample={loadSample} onDiscover={() => runDiscover(["hvac"], "Austin, TX", 30)} busy={discovering} />
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                <Kpi icon={<Target size={15} />} label="Leads in play" value={stats.total} sub={`${dupesRemoved} duplicate${dupesRemoved === 1 ? "" : "s"} merged · ${stats.enriched} enriched`} />
-                <Kpi icon={<Sparkles size={15} />} label="Priority (tier A)" value={stats.tiers.A} sub={`${stats.tiers.B} strong · call these first`} highlight onClick={() => setTier(tier === "A" ? "all" : "A")} active={tier === "A"} />
-                <Kpi icon={<UserRound size={15} />} label="Decision-makers named" value={stats.owners} sub={`${stats.verified} with mail-verified email`} onClick={() => setReachableOnly((v) => !v)} active={reachableOnly} />
-                <Kpi icon={<Gauge size={15} />} label="Data completeness" value={`${Math.round(stats.completeness * 100)}%`} sub={`${Math.round(stats.coverage * 100)}% of score backed by evidence`} />
+        <div className="mt-6">
+          <SearchBar onDiscover={runDiscover} busy={discovering} onOpenImport={setImportTab} onSample={loadSample} autoEnrich={autoEnrich} setAutoEnrich={setAutoEnrich} />
+        </div>
+
+        {activity && (
+          <div className="mt-4 flex items-center gap-2 text-[13px] text-muted" role="status" aria-live="polite">
+            <LoaderCircle size={14} className="animate-spin text-brand" />
+            {activity.message}
+          </div>
+        )}
+
+        {!hasLeads ? (
+          <EmptyState onTry={() => runDiscover(["hvac"], "Austin, TX", 30)} busy={discovering} />
+        ) : (
+          <>
+            <Card className="mt-8 grid grid-cols-2 overflow-hidden lg:grid-cols-4">
+              {stat.map((s, i) => {
+                const Tag = s.onClick ? "button" : "div";
+                return (
+                  <Tag
+                    key={s.label}
+                    onClick={s.onClick}
+                    className={cn(
+                      "px-5 py-4 text-left transition-colors",
+                      i % 2 === 1 && "border-l border-line",
+                      i >= 2 && "border-t border-line lg:border-t-0",
+                      i === 2 && "lg:border-l",
+                      s.onClick && "hover:bg-surface-2",
+                      s.active && "bg-brand-soft/60 hover:bg-brand-soft/60",
+                    )}
+                  >
+                    <div className={cn("flex items-center gap-1.5 text-[13px]", s.active ? "font-medium text-brand-ink" : "text-muted")}>
+                      {s.label}
+                      {s.active && <span className="text-[11px] font-normal">· filtered</span>}
+                    </div>
+                    <div className="mt-1 text-[26px] font-semibold tabular tracking-tight text-ink">{s.value}</div>
+                    <div className="truncate text-[12px] text-faint">{s.sub}</div>
+                  </Tag>
+                );
+              })}
+            </Card>
+
+            <Card className="mt-5 overflow-hidden">
+              <div className="flex flex-wrap items-center gap-2.5 px-4 py-3">
+                <Segmented
+                  value={view}
+                  onChange={setView}
+                  size="sm"
+                  options={[
+                    { value: "list", label: "Ranked" },
+                    { value: "pipeline", label: "Pipeline" },
+                  ]}
+                />
+                <div className="relative w-full min-w-[200px] sm:w-64">
+                  <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+                  <input id="lead-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search leads" className={cn(inputCls, "h-8 pl-8 text-[13px]")} />
+                  <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-line px-1 text-[10px] text-faint sm:block">/</kbd>
+                </div>
+                <Segmented<Tier | "all">
+                  value={tier}
+                  onChange={setTier}
+                  size="sm"
+                  options={(["all", "A", "B", "C", "D"] as const).map((t) => ({
+                    value: t,
+                    label: (
+                      <>
+                        {t === "all" ? "All" : t}
+                        <span className="tabular font-normal text-faint">{t === "all" ? stats.total : stats.tiers[t]}</span>
+                      </>
+                    ),
+                  }))}
+                />
+                <Chip active={reachableOnly} onClick={() => setReachableOnly((v) => !v)}>Owner reachable</Chip>
+                <Chip active={hideChains} onClick={() => setHideChains((v) => !v)}>Hide chains</Chip>
+                <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={cn(selectCls, "ml-auto h-8 text-[13px]")} aria-label="Sort">
+                  <option value="score">Sort by score</option>
+                  <option value="founded">Oldest first</option>
+                  <option value="completeness">Most complete</option>
+                  <option value="name">Name</option>
+                </select>
               </div>
 
-              <Card className="overflow-hidden">
-                <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
-                  <Segmented
-                    value={view}
-                    onChange={setView}
-                    size="sm"
-                    options={[
-                      { value: "list", label: <><LayoutList size={14} /> Ranked</> },
-                      { value: "pipeline", label: <><SquareKanban size={14} /> Pipeline</> },
-                    ]}
-                  />
-                  <div className="relative min-w-[180px] flex-1 sm:max-w-xs">
-                    <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
-                    <input id="lead-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search company, owner, city…  ( / )" className={cn(inputCls, "h-8 pl-8 text-[13px]")} />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {(["all", "A", "B", "C", "D"] as const).map((t) => (
-                      <Chip key={t} active={tier === t} onClick={() => setTier(t)}>
-                        {t === "all" ? "All" : t}
-                        <span className="tabular text-faint">{t === "all" ? stats.total : stats.tiers[t]}</span>
-                      </Chip>
-                    ))}
-                    <Chip active={reachableOnly} onClick={() => setReachableOnly((v) => !v)}>Reachable owner</Chip>
-                    <Chip active={hideChains} onClick={() => setHideChains((v) => !v)}>Hide chains</Chip>
-                  </div>
-                  <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={cn(selectCls, "ml-auto h-8 text-[13px]")} aria-label="Sort">
-                    <option value="score">Sort: Score</option>
-                    <option value="founded">Sort: Oldest first</option>
-                    <option value="completeness">Sort: Most complete</option>
-                    <option value="name">Sort: Name</option>
-                  </select>
+              {(selection.size > 0 || pendingNoEnrich.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2 border-t border-line bg-surface-2 px-4 py-2 text-[13px]">
+                  {selection.size > 0 ? (
+                    <>
+                      <span className="font-medium text-ink">{selection.size} selected</span>
+                      <span className="mx-1 h-4 w-px bg-line-strong" />
+                      <Button size="sm" variant="ghost" icon={<RefreshCw size={13} />} onClick={() => enrich([...selection], true)}>Re-enrich</Button>
+                      <select className={cn(selectCls, "h-8 text-[13px]")} defaultValue="" onChange={(e) => { const st = e.target.value as Stage; if (st) { selection.forEach((id) => setStage(id, st)); showToast(`Moved ${selection.size} to ${STAGES.find((s) => s.key === st)?.label}`); } e.target.value = ""; }}>
+                        <option value="">Move to stage…</option>
+                        {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                      </select>
+                      <Button size="sm" variant="ghost" icon={<Trash2 size={13} />} onClick={removeSelected}>Remove</Button>
+                      <Button size="sm" variant="ghost" icon={<X size={13} />} onClick={() => setSelection(new Set())} className="ml-auto">Clear selection</Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-muted">{pendingNoEnrich.length} lead{pendingNoEnrich.length === 1 ? " hasn't" : "s haven't"} been analysed yet, so scores are provisional.</span>
+                      <Button size="sm" variant="primary" icon={<ShieldCheck size={13} />} onClick={() => enrich(pendingNoEnrich.map((l) => l.id))} className="ml-auto">
+                        Enrich & verify {pendingNoEnrich.length}
+                      </Button>
+                    </>
+                  )}
                 </div>
+              )}
 
-                {(selection.size > 0 || pendingNoEnrich.length > 0) && (
-                  <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-2 px-3 py-2 text-[13px]">
-                    {selection.size > 0 ? (
-                      <>
-                        <span className="font-medium">{selection.size} selected</span>
-                        <Button size="sm" variant="primary" icon={<RefreshCw size={13} />} onClick={() => enrich([...selection], true)}>
-                          Re-enrich
-                        </Button>
-                        <select className={cn(selectCls, "h-8 text-[13px]")} defaultValue="" onChange={(e) => { const st = e.target.value as Stage; if (st) { selection.forEach((id) => setStage(id, st)); showToast(`Moved ${selection.size} to ${STAGES.find((s) => s.key === st)?.label}`); } e.target.value = ""; }}>
-                          <option value="">Move to stage…</option>
-                          {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                        </select>
-                        <Button size="sm" variant="ghost" icon={<Trash2 size={13} />} onClick={removeSelected}>Remove</Button>
-                        <Button size="sm" variant="ghost" icon={<X size={13} />} onClick={() => setSelection(new Set())}>Clear</Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-muted">{pendingNoEnrich.length} lead{pendingNoEnrich.length === 1 ? "" : "s"} not analysed yet — scores are provisional.</span>
-                        <Button size="sm" variant="primary" icon={<ShieldCheck size={13} />} onClick={() => enrich(pendingNoEnrich.map((l) => l.id))}>
-                          Enrich & verify {pendingNoEnrich.length}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {view === "list" ? (
-                  <LeadsTable
-                    rows={filtered}
-                    openId={openId}
-                    onOpen={setOpenId}
-                    selection={selection}
-                    onToggle={toggle}
-                    onToggleAll={(ids) => setSelection((s) => (ids.every((id) => s.has(id)) ? new Set() : new Set(ids)))}
-                    onStage={setStage}
-                    enriching={enriching}
-                    lens={box.lens}
-                  />
-                ) : (
-                  <Pipeline rows={filtered} onOpen={setOpenId} onStage={setStage} />
-                )}
-                {filtered.length === 0 && (
-                  <div className="px-6 py-12 text-center text-sm text-muted">
-                    No leads match these filters.{" "}
-                    <button className="font-medium text-brand" onClick={() => { setTier("all"); setQuery(""); setReachableOnly(false); setHideChains(false); }}>
-                      Clear filters
-                    </button>
-                  </div>
-                )}
-              </Card>
-              <p className="px-1 text-[11px] text-faint">
-                Keyboard: <kbd>/</kbd> search · <kbd>j</kbd>/<kbd>k</kbd> step through leads · <kbd>Esc</kbd> close. Data: OpenStreetMap contributors (ODbL), public company websites (robots.txt respected), DNS.
-              </p>
-            </>
-          )}
-        </section>
+              {view === "list" ? (
+                <LeadsTable
+                  rows={filtered}
+                  openId={openId}
+                  onOpen={setOpenId}
+                  selection={selection}
+                  onToggle={toggle}
+                  onToggleAll={(ids) => setSelection((s) => (ids.every((id) => s.has(id)) ? new Set() : new Set(ids)))}
+                  onStage={setStage}
+                  enriching={enriching}
+                  lens={box.lens}
+                />
+              ) : (
+                <Pipeline rows={filtered} onOpen={setOpenId} onStage={setStage} />
+              )}
+              {filtered.length === 0 && (
+                <div className="border-t border-line px-6 py-14 text-center text-sm text-muted">
+                  No leads match these filters.{" "}
+                  <button className="font-medium text-brand hover:underline" onClick={() => { setTier("all"); setQuery(""); setReachableOnly(false); setHideChains(false); }}>
+                    Clear filters
+                  </button>
+                </div>
+              )}
+            </Card>
+            <p className="mt-4 text-[12px] text-faint">
+              Shortcuts: <kbd className="font-sans">/</kbd> search · <kbd className="font-sans">j</kbd> <kbd className="font-sans">k</kbd> move between leads · <kbd className="font-sans">Esc</kbd> close. Sources: OpenStreetMap contributors (ODbL), public company websites (robots.txt respected), DNS.
+            </p>
+          </>
+        )}
       </main>
 
       {openItem && (
@@ -527,8 +577,20 @@ export default function App() {
         />
       )}
 
+      <Sheet
+        open={boxOpen}
+        onClose={() => setBoxOpen(false)}
+        title="Buy box & scoring"
+        subtitle={box.lens === "acquisition" ? "Define the businesses you want to acquire." : "Define your ideal customer."}
+        footer={<Button variant="primary" className="w-full" onClick={() => setBoxOpen(false)}>Apply — rankings update instantly</Button>}
+      >
+        <BuyBoxPanel box={box} onChange={setBox} />
+      </Sheet>
+
+      {importTab && <ImportDialog open initialTab={importTab} onClose={() => setImportTab(null)} onImport={importLeads} onSample={loadSample} />}
+
       {toast && (
-        <div role="status" className="animate-fade-up fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-accent px-4 py-2.5 text-[13px] text-white shadow-lg">
+        <div role="status" data-toast className="animate-fade-up fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-ink px-4 py-2.5 text-[13px] text-white shadow-[var(--shadow-pop)]">
           {toast}
         </div>
       )}
@@ -536,62 +598,30 @@ export default function App() {
   );
 }
 
-function Kpi({ icon, label, value, sub, highlight, onClick, active }: { icon: React.ReactNode; label: string; value: React.ReactNode; sub: string; highlight?: boolean; onClick?: () => void; active?: boolean }) {
-  const Tag = onClick ? "button" : "div";
-  return (
-    <Tag
-      onClick={onClick}
-      className={cn(
-        "rounded-xl border bg-surface p-3.5 text-left shadow-card transition-colors",
-        active ? "border-brand ring-2 ring-[var(--ring)]" : highlight ? "border-tier-a/40" : "border-line",
-        onClick && "hover:border-line-strong",
-      )}
-    >
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint">
-        <span className={highlight ? "text-tier-a" : "text-muted"}>{icon}</span>
-        {label}
-      </div>
-      <div className={cn("mt-1 text-2xl font-semibold tabular tracking-tight", highlight && "text-tier-a")}>{value}</div>
-      <div className="mt-0.5 truncate text-[12px] text-muted">{sub}</div>
-    </Tag>
-  );
-}
-
-function EmptyHero({ onSample, onDiscover, busy }: { onSample: () => void; onDiscover: () => void; busy: boolean }) {
+function EmptyState({ onTry, busy }: { onTry: () => void; busy: boolean }) {
   const steps = [
-    { title: "Find real businesses", body: "Search any industry + city on live OpenStreetMap data, or drop in a SaaSquatch CSV export." },
-    { title: "Enrich & verify", body: "We read each company website (politely), pull owner, founding year, tech stack, and MX-check every email." },
-    { title: "Prioritise with evidence", body: "Explainable acquisition or sales scores. Every point links to a quote or source — no black-box “low confidence”." },
-    { title: "Reach out in one click", body: "Outreach written from the verified signals, CRM-ready exports, and a pipeline to track conversations." },
+    { icon: Search, title: "Find real businesses", body: "Live OpenStreetMap data by industry and city, or your SaaSquatch CSV export." },
+    { icon: ShieldCheck, title: "Enrich & verify", body: "Each website is read politely for owners, founding year and tech stack. Emails are MX-checked." },
+    { icon: ListChecks, title: "Prioritise with evidence", body: "Explainable scores where every point links to a quote or source. No black-box confidence labels." },
+    { icon: Send, title: "Reach out", body: "Outreach written from verified signals, CRM-ready exports and a pipeline to track conversations." },
   ];
   return (
-    <Card className="overflow-hidden">
-      <div className="border-b border-line bg-[radial-gradient(circle_at_20%_0%,var(--brand-soft),transparent_55%)] px-6 py-10 sm:px-10">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] text-muted">
-          <Sparkles size={12} className="text-brand" /> Built on top of SaaSquatch&apos;s lead lists
-        </span>
-        <h1 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">From a raw list to the 10 owners worth calling today.</h1>
-        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">
-          Lead lists are easy to get. Knowing <em>who</em> to call, <em>why now</em>, and <em>what to say</em> is the hard part. LeadRadar turns businesses into ranked, verified, ready-to-contact targets — in about a minute.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-2">
-          <Button variant="primary" onClick={onDiscover} disabled={busy} icon={busy ? <LoaderCircle size={15} className="animate-spin" /> : <Radar size={15} />}>
-            Try it: HVAC companies in Austin, TX
-          </Button>
-          <Button onClick={onSample} icon={<Sparkles size={15} />}>
-            Load a sample SaaSquatch export
-          </Button>
-        </div>
-      </div>
-      <ol className="grid gap-px bg-line sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mt-10">
+      <Button onClick={onTry} disabled={busy} icon={busy ? <LoaderCircle size={15} className="animate-spin" /> : <Sparkles size={15} className="text-brand" />}>
+        Try it: HVAC companies in Austin, TX
+      </Button>
+      <div className="mt-16 grid gap-x-10 gap-y-8 border-t border-line pt-10 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((s, i) => (
-          <li key={s.title} className="bg-surface p-5">
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-soft text-[12px] font-semibold text-brand-ink">{i + 1}</span>
-            <div className="mt-3 text-sm font-semibold">{s.title}</div>
-            <p className="mt-1 text-[13px] leading-relaxed text-muted">{s.body}</p>
-          </li>
+          <div key={s.title}>
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-surface-2 text-muted"><s.icon size={15} /></span>
+              <span className="text-[12px] font-medium text-faint">Step {i + 1}</span>
+            </div>
+            <div className="mt-3 text-[15px] font-semibold text-ink">{s.title}</div>
+            <p className="mt-1.5 text-[14px] leading-relaxed text-muted">{s.body}</p>
+          </div>
         ))}
-      </ol>
-    </Card>
+      </div>
+    </div>
   );
 }

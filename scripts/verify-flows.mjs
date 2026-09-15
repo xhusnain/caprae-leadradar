@@ -23,7 +23,7 @@ await page.reload({ waitUntil: "networkidle" });
 
 // 1. Sample SaaSquatch export import
 await page.getByRole("button", { name: /Load a sample SaaSquatch export/i }).click();
-const toast = await page.waitForSelector("[role=status]", { timeout: 10_000 });
+const toast = await page.waitForSelector("[data-toast]", { timeout: 10_000 });
 const toastText = await toast.innerText();
 check(/duplicate/.test(toastText), `import toast reports dedupe: "${toastText}"`);
 await page.waitForFunction(() => !document.body.innerText.includes("Analysing websites"), null, { timeout: 180_000 });

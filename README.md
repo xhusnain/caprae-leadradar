@@ -40,6 +40,8 @@ This mirrors Caprae's thesis that most value is created *after* the acquisition:
 | ![Contacts](docs/screenshots/05-drawer-contacts.png) | **Verified contacts and data lineage.** Named vs shared-inbox emails, MX checks, phones, socials, and the source of every field (OSM link, page crawled, CSV). |
 | ![Outreach](docs/screenshots/06-drawer-outreach.png) | **Outreach pack.** Tone control, "why now", email with *Open in mail app* (auto-logs the touch), call opener, LinkedIn note, follow-ups, talking points. |
 | ![Pipeline](docs/screenshots/07-pipeline.png) | **Pipeline.** Drag-and-drop stages from New to NDA/LOI, notes with quick-log chips, bulk actions. |
+| ![Buy box](docs/screenshots/11-buybox.png) | **Buy box in a slide-over.** Target industries, geography, minimum years and scoring weights stay out of the way until you need them, and rankings update instantly. |
+| ![Import](docs/screenshots/12-import.png) | **One dialog for every source.** Drop a SaaSquatch or any CSV (columns auto-mapped, mapping editable) or paste domains. |
 
 Also included:
 - **Tunable buy box.** Industries, geography, minimum years in business and factor weights; the list re-ranks instantly on the client.

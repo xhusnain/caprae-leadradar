@@ -1,66 +1,51 @@
 @import "tailwindcss";
 
-/* Design tokens. Light is the default; dark follows the OS. Brand green nods to SaaSquatch. */
+/*
+ * Design tokens — a calm, premium light theme:
+ * white surfaces, slate typography, one restrained blue for actions and priority.
+ * Tiers are a single-hue blue scale (not four competing colours); amber/red are reserved for warnings.
+ */
 :root {
-  --bg: #f5f6f3;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f0f2ee;
-  --border: #e2e6df;
-  --border-strong: #cfd6cc;
-  --ink: #12211b;
-  --muted: #5d6c65;
-  --faint: #8a978f;
-  --brand: #1f8a5b;
-  --brand-ink: #0f5c3b;
-  --brand-soft: #e3f3ea;
-  --accent: #0f2a20;
-  --tier-a: #059669;
-  --tier-a-soft: #d9f5e8;
-  --tier-b: #b7791f;
-  --tier-b-soft: #fbefd6;
-  --tier-c: #0369a1;
-  --tier-c-soft: #dcecf8;
-  --tier-d: #6b7280;
-  --tier-d-soft: #eceef0;
-  --danger: #c2410c;
-  --danger-soft: #fdeadf;
-  --ring: rgba(31, 138, 91, 0.35);
-  --shadow: 0 1px 2px rgba(16, 24, 20, 0.05), 0 4px 16px rgba(16, 24, 20, 0.05);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1210;
-    --surface: #111a17;
-    --surface-2: #17221e;
-    --border: #22302a;
-    --border-strong: #2f3f38;
-    --ink: #e7efe9;
-    --muted: #9fb0a7;
-    --faint: #6f8078;
-    --brand: #3fb983;
-    --brand-ink: #7fd8ae;
-    --brand-soft: #173327;
-    --accent: #071210;
-    --tier-a: #34d399;
-    --tier-a-soft: #0f3326;
-    --tier-b: #f0b64a;
-    --tier-b-soft: #3a2c10;
-    --tier-c: #5bb4ec;
-    --tier-c-soft: #0f2b3d;
-    --tier-d: #9ca3af;
-    --tier-d-soft: #23282d;
-    --danger: #fb923c;
-    --danger-soft: #3a1f10;
-    --ring: rgba(63, 185, 131, 0.4);
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.25);
-  }
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --border: #e9edf2;
+  --border-strong: #d8dee6;
+  --ink: #0f172a;
+  --muted: #475569;
+  --faint: #94a3b8;
+  --brand: #2563eb;
+  --brand-ink: #1d4ed8;
+  --brand-soft: #eff6ff;
+  --brand-line: #bfdbfe;
+  --accent: #0f172a;
+  --warn: #b45309;
+  --warn-soft: #fffbeb;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --tier-a: #1d4ed8;
+  --tier-a-soft: #eff6ff;
+  --tier-a-ring: #2563eb;
+  --tier-b: #0f172a;
+  --tier-b-soft: #f1f5f9;
+  --tier-b-ring: #93c5fd;
+  --tier-c: #64748b;
+  --tier-c-soft: #f8fafc;
+  --tier-c-ring: #cbd5e1;
+  --tier-d: #94a3b8;
+  --tier-d-soft: #ffffff;
+  --tier-d-ring: #e2e8f0;
+  --ring: rgba(37, 99, 235, 0.16);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-pop: 0 12px 32px -8px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.05);
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
   --color-ink: var(--ink);
@@ -69,7 +54,12 @@
   --color-brand: var(--brand);
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
+  --color-brand-line: var(--brand-line);
   --color-accent: var(--accent);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
   --color-tier-a: var(--tier-a);
   --color-tier-a-soft: var(--tier-a-soft);
   --color-tier-b: var(--tier-b);
@@ -78,22 +68,22 @@
   --color-tier-c-soft: var(--tier-c-soft);
   --color-tier-d: var(--tier-d);
   --color-tier-d-soft: var(--tier-d-soft);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-pop);
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-feature-settings: "ss01", "cv11";
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.005em;
 }
 
 :focus-visible {
@@ -103,7 +93,7 @@ body {
 }
 
 ::selection {
-  background: var(--brand-soft);
+  background: #dbeafe;
 }
 
 .tabular {
@@ -120,27 +110,29 @@ body {
   100% { background-position: 400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, var(--surface-2) 0%, var(--border) 50%, var(--surface-2) 100%);
+  background: linear-gradient(90deg, var(--surface-3) 0%, var(--border) 50%, var(--surface-3) 100%);
   background-size: 800px 100%;
   animation: shimmer 1.4s linear infinite;
 }
 
 @keyframes slide-in {
-  from { transform: translateX(24px); opacity: 0; }
+  from { transform: translateX(16px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
-.animate-slide-in {
-  animation: slide-in 180ms ease-out;
-}
+.animate-slide-in { animation: slide-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 
 @keyframes fade-up {
-  from { transform: translateY(6px); opacity: 0; }
+  from { transform: translateY(4px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
-.animate-fade-up {
-  animation: fade-up 220ms ease-out both;
+.animate-fade-up { animation: fade-up 200ms ease-out both; }
+
+@keyframes pop-in {
+  from { transform: translateY(6px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
+.animate-pop-in { animation: pop-in 160ms ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton, .animate-slide-in, .animate-fade-up { animation: none; }
+  .skeleton, .animate-slide-in, .animate-fade-up, .animate-pop-in { animation: none; }
 }

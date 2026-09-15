@@ -84,10 +84,18 @@ function clean(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+/** The sentence around a match, so evidence reads naturally; falls back to a bounded window for run-on text. */
 function quoteAround(text: string, index: number, len: number, pad = 70): string {
-  const start = Math.max(0, index - pad);
-  const end = Math.min(text.length, index + len + pad);
-  return (start > 0 ? "…" : "") + clean(text.slice(start, end)) + (end < text.length ? "…" : "");
+  const minStart = Math.max(0, index - pad * 2);
+  const maxEnd = Math.min(text.length, index + len + pad * 2);
+  let start = index;
+  while (start > minStart && !/[.!?]/.test(text[start - 1])) start--;
+  let end = index + len;
+  while (end < maxEnd && !/[.!?]/.test(text[end])) end++;
+  if (end < text.length && /[.!?]/.test(text[end])) end++;
+  const cutStart = start === minStart && start > 0;
+  const cutEnd = end === maxEnd && end < text.length;
+  return (cutStart ? "…" : "") + clean(text.slice(start, end)) + (cutEnd ? "…" : "");
 }
 
 function decodeCfEmail(hex: string): string {

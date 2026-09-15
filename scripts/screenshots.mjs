@@ -36,6 +36,16 @@ await page.waitForFunction(() => !document.body.innerText.includes("Analysing we
 await page.waitForTimeout(800);
 await shot("03-ranked");
 
+await page.getByRole("button", { name: /Buy box/ }).click();
+await page.waitForSelector("[role=dialog]");
+await shot("11-buybox");
+await page.getByRole("button", { name: "Close panel" }).click();
+
+await page.getByRole("button", { name: /Import CSV/ }).click();
+await page.waitForSelector("[role=dialog]");
+await shot("12-import");
+await page.getByRole("button", { name: "Close dialog" }).click();
+
 await page.locator("tbody tr").first().click();
 await page.waitForSelector("aside[aria-label]");
 await shot("04-drawer-why");
