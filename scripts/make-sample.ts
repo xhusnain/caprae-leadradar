@@ -24,7 +24,8 @@ const row = (l: Lead) => ({
   "BBB Rating": "N/A",
   "Company Phone": l.phone ? formatPhone(l.phone) : "N/A",
   Website: l.website ? l.website.replace(/^https?:\/\//, "").replace(/\/$/, "") : "N/A",
-  "Estimated Revenue": ["500K", "1M", "2M", "3M", "5M"][Math.floor(Math.random() * 5)],
+  // No revenue data source is available, so this column is left empty rather than invented.
+  "Estimated Revenue": "N/A",
 });
 
 async function main() {

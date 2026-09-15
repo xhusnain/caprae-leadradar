@@ -75,6 +75,11 @@ const ROLE_WORDS = "Owner|Co-Owner|Founder|Co-Founder|President|CEO|Chief Execut
 const NAME = "([A-Z][a-z]+(?:\\s[A-Z]\\.)?\\s(?:Mc|Mac|O')?[A-Z][a-zA-Z'’-]+)";
 const NOT_NAMES = /^(Our|The|Your|About|Contact|Meet|Air|Heating|Service|Services|Home|Free|Call|Get|Read|Learn|Family|Owner|Founder|Customer|Privacy|Terms|Request|View|Best|Top|New|North|South|East|West|Google|Facebook|United|Since|Company|Business|Team)\b/;
 
+/** Rejects collective or generic labels ("The Befort Family", "Our Team") that are not a person to ask for. */
+function isPersonName(name: string): boolean {
+  return !NOT_NAMES.test(name) && !/\b(family|team|staff|company|group|crew|brothers|sons|inc|llc)\b/i.test(name);
+}
+
 function clean(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
@@ -196,7 +201,7 @@ export function extractPage(html: string, url: string): PageFacts {
     if (fd && !founded) founded = { year: Number(fd[1]), quote: `Structured data: foundingDate "${node.foundingDate}"` };
     for (const f of [...asArray(node.founder as JsonLdNode | JsonLdNode[]), ...asArray(node.employee as JsonLdNode | JsonLdNode[])]) {
       const name = typeof f === "string" ? f : (f?.name as string | undefined);
-      if (name && /\s/.test(name)) people.push({ name: clean(name), role: (f as JsonLdNode)?.jobTitle ? String((f as JsonLdNode).jobTitle) : "Founder", url, quote: "Structured data (schema.org)" });
+      if (name && /\s/.test(name) && isPersonName(name)) people.push({ name: clean(name), role: (f as JsonLdNode)?.jobTitle ? String((f as JsonLdNode).jobTitle) : "Founder", url, quote: "Structured data (schema.org)" });
     }
     const addr = node.address as JsonLdNode | undefined;
     if (addr && typeof addr === "object" && !address) {
@@ -244,7 +249,7 @@ export function extractPage(html: string, url: string): PageFacts {
     for (const m of text.matchAll(re)) {
       const name = idx === 1 ? m[2] : m[1];
       const role = idx === 0 ? m[2] : idx === 1 ? m[1] : "Owner";
-      if (!name || NOT_NAMES.test(name) || people.some((p) => p.name === name)) continue;
+      if (!name || !isPersonName(name) || people.some((p) => p.name === name)) continue;
       people.push({ name, role, url, quote: quoteAround(text, m.index ?? 0, m[0].length, 40) });
       if (people.length >= 5) break;
     }

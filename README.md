@@ -193,7 +193,12 @@ Environment variables (all optional):
 | `ANTHROPIC_API_KEY` | Enables Claude outreach drafts |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Production database / shared cache |
 
-**Dataset:** `public/sample-saasquatch-export.csv` has 16 real Texas businesses from OpenStreetMap in SaaSquatch's exact export layout, including two planted duplicates (a URL variant and a phone match) to demonstrate dedupe.
+**Dataset:** `public/sample-saasquatch-export.csv` contains real Texas businesses pulled live from OpenStreetMap by `npm run make-sample`, in SaaSquatch's exact export layout.
+- **Every name, address, phone and website is real.** Each can be checked against openstreetmap.org and the company's own site.
+- **Estimated Revenue is `N/A`.** There's no revenue source, so nothing is invented.
+- **The last two rows are deliberately planted duplicates** (a URL variant and a phone match) to demonstrate dedupe.
+
+Nothing else in the app is mock data. Discovery, website enrichment and MX checks all run live on every search, and cached results come only from earlier live fetches.
 
 ## 8. Project layout
 ```

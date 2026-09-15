@@ -25,6 +25,12 @@ describe("extractPage", () => {
     expect(f.phones).toContain("+15125550100");
   });
 
+  it("does not treat collective names like 'The Befort Family' as a person (real-site regression)", () => {
+    const ld = `<script type="application/ld+json">{"@type":"Plumber","founder":[{"@type":"Person","name":"The Befort Family"},{"@type":"Person","name":"Jessica Warner","jobTitle":"President"}]}</script>`;
+    const f = extractPage(page("<p>Welcome</p>", ld), "https://befort1957.com");
+    expect(f.people.map((p) => p.name)).toEqual(["Jessica Warner"]);
+  });
+
   it("decodes Cloudflare-obfuscated and mailto emails and tel links", () => {
     const html = page(`<a href="mailto:owner@acme.com">Email</a><span class="__cf_email__" data-cfemail="${cfEncode("jane@acme.com")}">[email protected]</span><a href="tel:+1-512-555-0199">Call</a>`);
     const f = extractPage(html, "https://acme.com");
